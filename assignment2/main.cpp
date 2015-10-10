@@ -17,6 +17,8 @@
 
 #define AMAX 0.1
 
+#define OBSTACLENO 2
+
 int WIDTH = 1300;
 int HEIGHT = 900;
 
@@ -28,9 +30,13 @@ double particleSize = 0.3;
 double hStep = 0.1;
 
 Vector3d sunPosition(0,0,0);
-Vector3d obstaclePosition(7,7,0);
+//Vector3d obstaclePosition(7,7,0);
 
-double obstacleRadius = 1.5;
+//double obstacleRadius = 1.5;
+
+
+double obstacleRadiuses[2] = {3, 1.5};
+Vector3d obstaclePositions[2] = {Vector3d(0,0,0), Vector3d(7,7,0)};
 
 Camera *camera;
 
@@ -175,7 +181,7 @@ void myDisplay(void)
         glMaterialfv(GL_FRONT, GL_EMISSION,  ball_mat_emission);
         glMaterialf (GL_FRONT, GL_SHININESS, ball_mat_shininess);
         
-        glutSolidSphere(3, 20, 20); //radius of ball; number of faces creating a ball
+        glutSolidSphere(obstacleRadiuses[0], 20, 20); //radius of ball; number of faces creating a ball
     }
     
     //a blue obstacle
@@ -194,8 +200,8 @@ void myDisplay(void)
         glMaterialf (GL_FRONT, GL_SHININESS, ball_mat_shininess);
         
         glPushMatrix();
-        glTranslated(obstaclePosition.x, obstaclePosition.y, obstaclePosition.z);
-        glutSolidSphere(obstacleRadius-0.5, 20, 20); //radius of ball; number of faces creating a ball
+        glTranslated(obstaclePositions[1].x, obstaclePositions[1].y, obstaclePositions[1].z);
+        glutSolidSphere(obstacleRadiuses[1], 20, 20); //radius of ball; number of faces creating a ball
         glPopMatrix();
     }
     
@@ -282,7 +288,7 @@ void calculatePosition()
 
 void flockAcceleration()
 {
-    double KA = 0.1;
+    double KA = 0.05;
     double KV = 0.01;
     double KC = 0.001;
     double R1 = 8;
@@ -355,46 +361,62 @@ void flockAcceleration()
                 }
             }
             
-            double KAC = 5;
+           
+                
+                    Vector3d particlePositionNew, particleVelocityNew;
+                    Vector3d Xai = boidStates[i] - sunPosition;
+                    double distance  = Xai.norm();
+                    boidStatesA[i+BOIDNUMBER] =  boidStatesA[i+BOIDNUMBER] +  (-0.005 * (distance*distance))*(Xai.normalize()) ;
+                
+                
+               
+            
+            
+            
+        }
+        else
+        {
+            
+                Vector3d particlePositionNew, particleVelocityNew;
+                Vector3d Xai = boidStates[i] - sunPosition;
+                double distance  = Xai.norm();
+                boidStatesA[i+BOIDNUMBER] =  boidStatesA[i+BOIDNUMBER] +  (-0.005 * (distance*distance))*(Xai.normalize()) ;
+
+        }
+        
+        for (int k = 0; k<OBSTACLENO; k++) {
             //avoid collision with obstical
-            Vector3d Xbo = obstaclePosition - boidStates[i];
+            Vector3d Xbo = obstaclePositions[k] - boidStates[i];
             Vector3d ViN = boidStates[i+BOIDNUMBER].normalize();
             double Sclose = Xbo * ViN;
             if (Sclose > 0 && Sclose< 5) {
                 Vector3d Xclose = boidStates[i] + Sclose*ViN;
-                Vector3d Vp = Xclose - obstaclePosition;
+                Vector3d Vp = Xclose - obstaclePositions[k];
                 double d = Vp.norm();
-                if (d < obstacleRadius) {
-                    Vector3d Xt = obstaclePosition + obstacleRadius * (Vp.normalize());
+                double radius = obstacleRadiuses[k]*1.5;
+                if (d < radius ){
+                    Vector3d Xt = obstaclePositions[k] + radius * (Vp.normalize());
                     double dt = (Xt - boidStates[i]).norm();
                     double vt = boidStates[i+BOIDNUMBER] * (Xt - boidStates[i]).normalize();
                     
                     double tt = dt / vt;
                     double Dvs = (boidStates[i+BOIDNUMBER].normalize() % (Xt - boidStates[i])).norm() * 1.0 / tt;
                     double as = 3 * Dvs / tt;
+                    
+                    if (as >15) {
+                        as = 15;
+                    }
+                    
                     Vector3d As = as * Vp.normalize();
                     boidStatesA[i+BOIDNUMBER] =  boidStatesA[i+BOIDNUMBER] + As;
                 }
             }
-            else
-            {
-                
-                Vector3d particlePositionNew, particleVelocityNew;
-                Vector3d Xai = boidStates[i] - sunPosition;
-                double distance  = Xai.norm();
-                boidStatesA[i+BOIDNUMBER] =  boidStatesA[i+BOIDNUMBER] +  (-0.005 * (distance*distance))*(Xai.normalize()) ;
-            }
             
             
         }
-        else
-        {
-            Vector3d particlePositionNew, particleVelocityNew;
-            Vector3d Xai = boidStates[i] - sunPosition;
-            double distance  = Xai.norm();
-            boidStatesA[i+BOIDNUMBER] = (-0.005 * (distance*distance))*(Xai.normalize()) ;
-            //boidStatesA[i+BOIDNUMBER] = (-60 * 1.0/(distance*distance))*(Xai.normalize());
-        }
+        
+       
+        
         
     }
 }
@@ -444,7 +466,7 @@ void statesNumInt()
     for (int i = 0 ; i<BOIDNUMBER; i++) {
         if ((boidStatesNew[i] - sunPosition).norm() > 25) {
             boidStatesNew[i] = Vector3d(gauss(0, 5, 1),gauss(10, 2, 1),gauss(0, 3, 1));
-            boidStatesNew[i+BOIDNUMBER] = Vector3d(0,0,0);
+            boidStatesNew[i+BOIDNUMBER] = Vector3d(2,0,0);
         }
     }
      
