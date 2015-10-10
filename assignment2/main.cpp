@@ -28,6 +28,9 @@ double particleSize = 0.3;
 double hStep = 0.1;
 
 Vector3d sunPosition(0,0,0);
+Vector3d obstaclePosition(7,7,0);
+
+double obstacleRadius = 1.5;
 
 Camera *camera;
 
@@ -128,8 +131,8 @@ void boidGenerator()
 {
     
     for (int i = 0; i<BOIDNUMBER; i++) {
-        if (BOIDNUMBER/2 == i) {
-            particles.push_back( Particle(Vector3d(0,8,0), Vector3d(2,0,0), Vector3d(0,0,0), Vector4d(0,1,0,0), 1, 0, particleSize, false,"leader") );
+        if (0 == i%5) {
+            particles.push_back( Particle(Vector3d(gauss(0, 3, 1),gauss(10, 2, 1),0), Vector3d(2,0,0), Vector3d(0,0,0), Vector4d(0,1,0,0), 1, 0, particleSize, false,"leader") );
         }
         else{
             particles.push_back( Particle(Vector3d(gauss(0, 5, 1),gauss(10, 2, 1),gauss(0, 3, 1)), Vector3d(0,0,0), Vector3d(0,0,0), Vector4d(0,0,1,0), 1, 0, particleSize, false,"boid") );//position,velocity,aceleration,color,mass,lifespan,pointsize,stopSign,name
@@ -175,6 +178,26 @@ void myDisplay(void)
         glutSolidSphere(3, 20, 20); //radius of ball; number of faces creating a ball
     }
     
+    //a blue obstacle
+    {
+        //Setting  material
+        GLfloat ball_mat_ambient[]  = {0.0f, 0.5f, 0.7f, 1.0f};
+        GLfloat ball_mat_diffuse[]  = {0.0f, 0.5f, 0.5f, 1.0f};
+        GLfloat ball_mat_specular[] = {0.0f, 0.5f, 0.5f, 1.0f};
+        GLfloat ball_mat_emission[] = {0.0f, 0.5f, 0.3f, 1.0f};
+        GLfloat ball_mat_shininess  = 10.0f;
+        
+        glMaterialfv(GL_FRONT, GL_AMBIENT,   ball_mat_ambient);
+        glMaterialfv(GL_FRONT, GL_DIFFUSE,   ball_mat_diffuse);
+        glMaterialfv(GL_FRONT, GL_SPECULAR,  ball_mat_specular);
+        glMaterialfv(GL_FRONT, GL_EMISSION,  ball_mat_emission);
+        glMaterialf (GL_FRONT, GL_SHININESS, ball_mat_shininess);
+        
+        glPushMatrix();
+        glTranslated(obstaclePosition.x, obstaclePosition.y, obstaclePosition.z);
+        glutSolidSphere(obstacleRadius-0.5, 20, 20); //radius of ball; number of faces creating a ball
+        glPopMatrix();
+    }
     
     {
         
@@ -195,12 +218,14 @@ void myDisplay(void)
         
         for (int i = 0; i < particles.size(); ++i) {
             if (particles[i].getName() == "leader") {
+                
                 glEnable(GL_COLOR_MATERIAL);
                 glColorMaterial(GL_FRONT, GL_EMISSION);
                 glColor4f(particles[i].getColor().x, particles[i].getColor().y, particles[i].getColor().z, particles[i].getColor().w);
                 glColorMaterial(GL_FRONT, GL_SPECULAR);
                 glColor4f(particles[i].getColor().x, particles[i].getColor().y, particles[i].getColor().z, particles[i].getColor().w);
                 glDisable(GL_COLOR_MATERIAL);
+                
             }
             else
             {
@@ -209,11 +234,14 @@ void myDisplay(void)
                 glMaterialfv(GL_FRONT, GL_SPECULAR,  ball_mat_specular);
                 glMaterialfv(GL_FRONT, GL_EMISSION,  ball_mat_emission);
                 glMaterialf (GL_FRONT, GL_SHININESS, ball_mat_shininess);
+                
             }
+            
             glPushMatrix();
             glTranslatef(particles[i].getPosition().x, particles[i].getPosition().y, particles[i].getPosition().z);
             glutSolidCone(particles[i].getPointSize(), particles[i].getPointSize()*2, 16, 16);
             glPopMatrix();
+          
             
             
         }
@@ -250,17 +278,14 @@ void calculatePosition()
 }
 
 
-
-
-
 //***************************************//
 
 void flockAcceleration()
 {
-    double KA = 0.01;
+    double KA = 0.1;
     double KV = 0.01;
     double KC = 0.001;
-    double R1 = 5;
+    double R1 = 8;
     double R2 = 20;
     
     //Computer environmental acceleration on all particals
@@ -325,17 +350,49 @@ void flockAcceleration()
                     {
                         KD = (R2-Xij.norm())*1.0/(R2 - R1);
                     }
-                    
                     boidStatesA[i+BOIDNUMBER] =boidStatesA[i+BOIDNUMBER] + KD*acceleration;
+                    
                 }
             }
+            
+            double KAC = 5;
+            //avoid collision with obstical
+            Vector3d Xbo = obstaclePosition - boidStates[i];
+            Vector3d ViN = boidStates[i+BOIDNUMBER].normalize();
+            double Sclose = Xbo * ViN;
+            if (Sclose > 0 && Sclose< 5) {
+                Vector3d Xclose = boidStates[i] + Sclose*ViN;
+                Vector3d Vp = Xclose - obstaclePosition;
+                double d = Vp.norm();
+                if (d < obstacleRadius) {
+                    Vector3d Xt = obstaclePosition + obstacleRadius * (Vp.normalize());
+                    double dt = (Xt - boidStates[i]).norm();
+                    double vt = boidStates[i+BOIDNUMBER] * (Xt - boidStates[i]).normalize();
+                    
+                    double tt = dt / vt;
+                    double Dvs = (boidStates[i+BOIDNUMBER].normalize() % (Xt - boidStates[i])).norm() * 1.0 / tt;
+                    double as = 3 * Dvs / tt;
+                    Vector3d As = as * Vp.normalize();
+                    boidStatesA[i+BOIDNUMBER] =  boidStatesA[i+BOIDNUMBER] + As;
+                }
+            }
+            else
+            {
+                
+                Vector3d particlePositionNew, particleVelocityNew;
+                Vector3d Xai = boidStates[i] - sunPosition;
+                double distance  = Xai.norm();
+                boidStatesA[i+BOIDNUMBER] =  boidStatesA[i+BOIDNUMBER] +  (-0.005 * (distance*distance))*(Xai.normalize()) ;
+            }
+            
+            
         }
         else
         {
             Vector3d particlePositionNew, particleVelocityNew;
             Vector3d Xai = boidStates[i] - sunPosition;
             double distance  = Xai.norm();
-            boidStatesA[i+BOIDNUMBER] = (-0.01 * (distance*distance))*(Xai.normalize()) ;
+            boidStatesA[i+BOIDNUMBER] = (-0.005 * (distance*distance))*(Xai.normalize()) ;
             //boidStatesA[i+BOIDNUMBER] = (-60 * 1.0/(distance*distance))*(Xai.normalize());
         }
         
@@ -368,7 +425,7 @@ void plantAcceleration()
 
 void sysDynaFunc()
 {
-    //x plantAcceleration();
+    //plantAcceleration();
     flockAcceleration();
     for (int i =0; i<BOIDNUMBER; i++) {
         boidStatesA[i] = boidStates[i+BOIDNUMBER];
@@ -383,13 +440,14 @@ void statesNumInt()
         boidStatesNew[i] = boidStates[i] + boidStatesA[i]*hStep;
     }
     
+    
     for (int i = 0 ; i<BOIDNUMBER; i++) {
-        if (boidStatesNew[i].x>20 || boidStatesNew[i].x<-20 ||
-            boidStatesNew[i].y>20 || boidStatesNew[i].y<-20 ||
-            boidStatesNew[i].z>20 || boidStatesNew[i].z<-20) {
-            boidStatesNew[i+BOIDNUMBER] = -1 * boidStatesNew[i+BOIDNUMBER];
+        if ((boidStatesNew[i] - sunPosition).norm() > 25) {
+            boidStatesNew[i] = Vector3d(gauss(0, 5, 1),gauss(10, 2, 1),gauss(0, 3, 1));
+            boidStatesNew[i+BOIDNUMBER] = Vector3d(0,0,0);
         }
     }
+     
     
     
 }
