@@ -17,7 +17,9 @@
 
 #define AMAX 0.1
 
-#define OBSTACLENO 2
+#define OBSTACLENO 3
+
+#define PNUMBER 50
 
 int WIDTH = 1300;
 int HEIGHT = 900;
@@ -34,14 +36,14 @@ Vector3d sunPosition(0,0,0);
 Vector3d originalOrient(0,0,1);
 
 
-double obstacleRadiuses[2] = {3, 1.5};
-Vector3d obstaclePositions[2] = {Vector3d(0,0,0), Vector3d(7,7,0)};
+double obstacleRadiuses[3] = {3, 1.5, 2};
+Vector3d obstaclePositions[3] = {Vector3d(0,0,0), Vector3d(7,7,0), Vector3d(-8,6,0)};
 
 Camera *camera;
 
 //vector
 std::vector<Particle>particles;
-std::vector<Particle>::iterator it;
+
 
 Vector3d boidStates[BOIDNUMBER*2];
 Vector3d boidStatesNew[BOIDNUMBER*2];
@@ -72,6 +74,11 @@ void motionEventHandler(int x, int y) {
 }
 
 
+
+
+
+std::vector<Particle>fireWorks;
+std::vector<Particle>::iterator it;
 
 
 // draws a simple grid
@@ -146,6 +153,15 @@ void boidGenerator()
     
 }
 
+void fireWorkGenerator(Vector3d center)
+{
+    
+    for (int i = 0; i<PNUMBER; i++) {
+        fireWorks.push_back(Particle(Vector3d(center.x, center.y, center.z), Vector3d(gauss(0, 0.2, 1),gauss(0, 0.2, 1),gauss(0, 0.2, 1)), Vector3d(0,0,0), Vector4d(0,1,0,0), 1, 0, 1.5, false,"firework"));
+
+    }
+  }
+
 
 
 void myDisplay(void)
@@ -205,6 +221,28 @@ void myDisplay(void)
         glPopMatrix();
     }
     
+    
+    //a yello obstacle
+    {
+        //Setting  material
+        GLfloat ball_mat_ambient[]  = {0.3f, 0.2f, 0.7f, 1.0f};
+        GLfloat ball_mat_diffuse[]  = {0.3f, 0.2f, 0.5f, 1.0f};
+        GLfloat ball_mat_specular[] = {0.3f, 0.2f, 0.5f, 1.0f};
+        GLfloat ball_mat_emission[] = {0.3f, 0.2f, 0.3f, 1.0f};
+        GLfloat ball_mat_shininess  = 10.0f;
+        
+        glMaterialfv(GL_FRONT, GL_AMBIENT,   ball_mat_ambient);
+        glMaterialfv(GL_FRONT, GL_DIFFUSE,   ball_mat_diffuse);
+        glMaterialfv(GL_FRONT, GL_SPECULAR,  ball_mat_specular);
+        glMaterialfv(GL_FRONT, GL_EMISSION,  ball_mat_emission);
+        glMaterialf (GL_FRONT, GL_SHININESS, ball_mat_shininess);
+        
+        glPushMatrix();
+        glTranslated(obstaclePositions[2].x, obstaclePositions[2].y, obstaclePositions[2].z);
+        glutSolidSphere(obstacleRadiuses[2], 20, 20); //radius of ball; number of faces creating a ball
+        glPopMatrix();
+    }
+    
     {
         
         GLfloat ball_mat_ambient[]  = {0.0f, 0.0f, 0.7f, 1.0f};
@@ -212,15 +250,6 @@ void myDisplay(void)
         GLfloat ball_mat_specular[] = {0.0f, 0.0f, 0.5f, 1.0f};
         GLfloat ball_mat_emission[] = {0.0f, 0.0f, 0.3f, 1.0f};
         GLfloat ball_mat_shininess  = 10.0f;
-        
-        /*
-        glMaterialfv(GL_FRONT, GL_AMBIENT,   ball_mat_ambient);
-        glMaterialfv(GL_FRONT, GL_DIFFUSE,   ball_mat_diffuse);
-        glMaterialfv(GL_FRONT, GL_SPECULAR,  ball_mat_specular);
-        glMaterialfv(GL_FRONT, GL_EMISSION,  ball_mat_emission);
-        glMaterialf (GL_FRONT, GL_SHININESS, ball_mat_shininess);
-         */
-         
         
         for (int i = 0; i < particles.size(); ++i) {
             if (particles[i].getName() == "leader") {
@@ -258,30 +287,58 @@ void myDisplay(void)
             glutSolidCone(particles[i].getPointSize(), particles[i].getPointSize()*2, 16, 16);
             glPopMatrix();     
         }
+    }
+    
+    
+    //draw firework
+    if (fireWorks.size() > 0) {
+        //Setting  material
+        GLfloat ball_mat_ambient[]  = {0.7f, 0.2f, 0.1f, 1.0f};
+        GLfloat ball_mat_diffuse[]  = {0.5f, 0.2f, 0.1f, 1.0f};
+        GLfloat ball_mat_specular[] = {0.5f, 0.2f, 0.1f, 1.0f};
+        GLfloat ball_mat_emission[] = {0.5f, 0.2f, 0.1f, 1.0f};
+        GLfloat ball_mat_shininess  = 10.0f;
         
-    } 
+        glMaterialfv(GL_FRONT, GL_AMBIENT,   ball_mat_ambient);
+        glMaterialfv(GL_FRONT, GL_DIFFUSE,   ball_mat_diffuse);
+        glMaterialfv(GL_FRONT, GL_SPECULAR,  ball_mat_specular);
+        glMaterialfv(GL_FRONT, GL_EMISSION,  ball_mat_emission);
+        glMaterialf (GL_FRONT, GL_SHININESS, ball_mat_shininess);
+        
+        for (int i = 0; i < fireWorks.size(); ++i) {
+            glPointSize(fireWorks[i].getPointSize());
+            glBegin(GL_POINTS);
+            glVertex3f(fireWorks[i].getPosition().x, fireWorks[i].getPosition().y, fireWorks[i].getPosition().z);
+            glEnd();
+        }
+    }
+    
+    
+    
     glFlush();
     glutSwapBuffers();
 }
 
 
-void calculatePosition()
+void calculateFireworkPosition()
 {
-    Vector3d particlePositionNew, particleVelocityNew;
-    for (it = particles.begin(); it!=particles.end(); ++it) {
+    double KAR = 0.05;
+    Vector3d fireworkPositionNew, fireworkVelocityNew;
+    for (it = fireWorks.begin(); it!=fireWorks.end(); ++it) {
         it->setLifeSpan(it->getLifeSpan()+1);
         if (it->getStopSign() == false) {
-            if (it->getName() == "leader") {
-                Vector3d Xai = it->getPosition() - sunPosition;
-                double distance  = Xai.norm();
-                it->setAcceleration( (-0.02 * (distance*distance))*(Xai.normalize()) );
-                //it->setAcceleration((-50 * 1.0/(distance*distance))*(Xai.normalize()));
-            }
-            particleVelocityNew = it->getVelocity() + it->getAcceleration()*hStep;
-            particlePositionNew = it->getPosition() + it->getVelocity()*hStep;
-            
-            it->setPosition(particlePositionNew);
-            it->setVelocity(particleVelocityNew);
+            Vector3d acceleration = (it->getVelocity()*it->getVelocity())*KAR;
+            fireworkVelocityNew = it->getVelocity() + it->getAcceleration()*hStep;
+            fireworkPositionNew = it->getPosition() + it->getVelocity()*hStep;
+            it->setPosition(fireworkPositionNew);
+            it->setVelocity(fireworkVelocityNew);
+        }
+    }
+    
+    for (it = fireWorks.begin(); it!=fireWorks.end(); ++it) {
+        if (it->getLifeSpan()>50) {
+            fireWorks.clear();
+            break;
         }
     }
 }
@@ -366,11 +423,12 @@ void flockAcceleration()
             
         }
         
+        
         Vector3d particlePositionNew, particleVelocityNew;
         Vector3d Xai = boidStates[i] - sunPosition;
         double distance  = Xai.norm();
         boidStatesA[i+BOIDNUMBER] =  boidStatesA[i+BOIDNUMBER] +  (-0.002 * (distance*distance))*(Xai.normalize()) ;
-
+         
         
         
         for (int k = 0; k<OBSTACLENO; k++) {
@@ -378,7 +436,7 @@ void flockAcceleration()
             Vector3d Xbo = obstaclePositions[k] - boidStates[i];
             Vector3d ViN = boidStates[i+BOIDNUMBER].normalize();
             double Sclose = Xbo * ViN;
-            if (Sclose > 0 && Sclose< 5) {
+            if (Sclose > 0 && Sclose< 7) {
                 Vector3d Xclose = boidStates[i] + Sclose*ViN;
                 Vector3d Vp = Xclose - obstaclePositions[k];
                 double d = Vp.norm();
@@ -398,8 +456,25 @@ void flockAcceleration()
                     
                     Vector3d As = as * Vp.normalize();
                     boidStatesA[i+BOIDNUMBER] =  boidStatesA[i+BOIDNUMBER] + As;
+                    
+                    if (Xbo.norm()<obstacleRadiuses[k]*1.5) {
+                        fireWorkGenerator(Xt);
+                    }
                 }
+                
+                
             }
+            
+            /*
+            else
+            {
+                Vector3d particlePositionNew, particleVelocityNew;
+                Vector3d Xai = boidStates[i] - sunPosition;
+                double distance  = Xai.norm();
+                boidStatesA[i+BOIDNUMBER] =  boidStatesA[i+BOIDNUMBER] +  (-0.002 * (distance*distance))*(Xai.normalize()) ;
+
+            }
+             */
             
             
         }
@@ -433,6 +508,8 @@ void plantAcceleration()
     }
     
 }
+
+
 
 void sysDynaFunc()
 {
@@ -539,6 +616,7 @@ void init() {
     }
     particles.reserve(1000);
     boidGenerator();
+    fireWorkGenerator(Vector3d(0,0,0));
     for (int i=0; i<BOIDNUMBER; i++) {
         boidStates[i] = particles[i].getPosition();
         boidStates[i+BOIDNUMBER] = particles[i].getVelocity();
@@ -551,7 +629,7 @@ void init() {
 void timeProc(int id)
 {
     if (id == 1) {
-        //calculatePosition();
+        calculateFireworkPosition();
         interactiveCalculate();
         glutPostRedisplay();
         if (resetSign == 0) {
