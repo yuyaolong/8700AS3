@@ -658,6 +658,24 @@ void handleKey(unsigned char key, int x, int y){
             showGrid = !showGrid;
             break;
             
+        case 'o':
+        case 'O':
+            for (int i =0; i<BOIDNUMBER; i++) {
+                Vector3d tmp =  boidStates[i+BOIDNUMBER];
+                boidStates[i+BOIDNUMBER] = Vector3d(tmp.x+gauss(0, 5, 1), tmp.y+gauss(0, 5, 1), tmp.z+gauss(0, 5, 1));
+            }
+            break;
+        
+        case 'l':
+        case 'L':
+            for (int i =0; i<BOIDNUMBER; i++) {
+                Vector3d tmp =  boidStates[i+BOIDNUMBER];
+                double randomV = gauss(2, 2, 1);
+                boidStates[i+BOIDNUMBER] = Vector3d(tmp.x+randomV, tmp.y, tmp.z);
+            }
+            break;
+            
+        
             
         case 's':
         case 'S':
@@ -673,6 +691,7 @@ void handleKey(unsigned char key, int x, int y){
 
 int main(int argc, char *argv[])
 {
+
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
     glutInitWindowPosition(100, 100);
